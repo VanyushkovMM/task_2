@@ -115,15 +115,15 @@ void worker(bool info) {
         MPI_Send(nullptr, 0, MPI_INT, ROOT, WAIT_SOURCE, MPI_COMM_WORLD);
         MPI_Recv(nullptr, 0, MPI_INT, ROOT, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
         if (status.MPI_TAG == NO_SOURCE) {
-            if (info) print_info("Rank %d end", rank);
+            // if (info) print_info("Rank %d end", rank);
             break;
         }
-        if (info) print_info("Rank %d get data from root", rank);
+        // if (info) print_info("Rank %d get data from root", rank);
         Matrix m1 = recv_mtrx(ROOT);
         Matrix m2 = recv_mtrx(ROOT);
         MPI_Send(nullptr, 0, MPI_INT, ROOT, SOURCE_DONE, MPI_COMM_WORLD);
         Matrix m = matrix_mul(m1, m2);
-        if (info) print_info("Rank %d set result to root", rank);
+        // if (info) print_info("Rank %d set result to root", rank);
         send_mtrx(m, ROOT);
     }
 }
