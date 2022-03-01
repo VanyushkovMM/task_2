@@ -14,6 +14,7 @@ void Matrix::print(bool all_mtrx_out) {
     int r = std::min(rows, max_mtrx_size);
     int c = std::min(cols, max_mtrx_size);
     int pos = 0;
+    if (rows > r || cols > c) std::cout << "Size: " << rows << " x " << cols << '\n';
     for (int i = 0; i < r; i++) {
         for (int j = 0; j < c; j++)
             std::cout << mtrx[pos + j] << ' ';
@@ -63,8 +64,8 @@ Matrix recv_mtrx(int id) {
     return m;
 }
 
-void print_info(const char* text, int id = 0) {
-    printf(text, id);
+void print_info(const char* text, int id = 0, int task = 0) {
+    printf(text, id, task);
     printf("\n");
     fflush(stdout);
 }
@@ -73,30 +74,33 @@ std::vector<Matrix> root(std::queue<std::pair<Matrix, Matrix>>* queue, bool info
     int size;
     MPI_Comm_size(MPI_COMM_WORLD, &size);
     std::vector<Matrix> res(queue->size());
+    std::vector<int> rank_task(size);
     int i = 0;
     MPI_Status status;
     while (true) {
         if (size == 1) {
-            if (info) print_info("Root end");
+            if (info) print_info("ROOT end");
             break;
         }
         MPI_Recv(nullptr, 0, MPI_INT, MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
         int id = status.MPI_SOURCE;
         if (status.MPI_TAG == SOURCE_DONE) {
-            if (info) print_info("Root get result from rank %d", id);
-            res[i++] = recv_mtrx(id);
+            if (info) print_info("ROOT get result from rank %d TASK %d", id, rank_task[id]);
+            res[rank_task[id]] = recv_mtrx(id);
+            // res[i++] = recv_mtrx(id);
         } else {
             if (queue->empty()) {
-                if (info) print_info("Root inform rank %d about end", id);
+                if (info) print_info("ROOT inform rank %d about end", id);
                 MPI_Send(nullptr, 0, MPI_INT, id, NO_SOURCE, MPI_COMM_WORLD);
                 size--;
             } else {
-                if (info) print_info("Root set data to rank %d", id);
+                if (info) print_info("ROOT set data to rank %d TASK %d", id, i);
                 std::pair<Matrix, Matrix> data = queue->front();
                 queue->pop();
                 MPI_Send(nullptr, 0, MPI_INT, id, HAVE_SOURCE, MPI_COMM_WORLD);
                 send_mtrx(data.first, id);
                 send_mtrx(data.second, id);
+                rank_task[id] = i++;
             }
         }
     }
@@ -129,9 +133,10 @@ std::vector<Matrix> queue_data(std::queue<std::pair<Matrix, Matrix>>* queue, boo
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
     MPI_Comm_size(MPI_COMM_WORLD, &size);
 
-    std::vector<Matrix> res(queue->size());
+    std::vector<Matrix> res;
     if (size == 1) {
         if (info) std::cout << "One thread:\n";
+        res.resize(queue->size());
         for (int i = 0; !queue->empty(); i++) {
             std::pair<Matrix, Matrix> data = queue->front();
             queue->pop();
